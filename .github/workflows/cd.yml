@@ -1,0 +1,60 @@
+name: cd
+
+permissions:
+  contents: read
+  
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy_dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy DEV
+        env:
+          DATABRICKS_HOST: ${{ secrets.DEV_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle validate -t dev
+          databricks bundle deploy -t dev
+
+  deploy_stg:
+    needs: deploy_dev
+    if: false   # <-- HOLD STG for now
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+      - name: Deploy STG
+        env:
+          DATABRICKS_HOST: ${{ secrets.STG_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.STG_DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle validate -t stg
+          databricks bundle deploy -t stg
+
+  deploy_prod:
+    needs: deploy_stg
+    if: false   # <-- HOLD PROD for now
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+      - name: Deploy PROD
+        env:
+          DATABRICKS_HOST: ${{ secrets.PROD_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.PROD_DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle validate -t prod
+          databricks bundle deploy -t prod
