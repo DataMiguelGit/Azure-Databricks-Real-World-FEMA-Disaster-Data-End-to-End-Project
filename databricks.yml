@@ -8,13 +8,13 @@ include:
 
 targets:
   dev: 
-    workspace:
-      host: ${DEV_DATABRICKS_HOST}
+    mode: development
+    default: true
   
   stg: 
-    workspace:
-      host: ${STG_DATABRICKS_HOST}
+    mode: production
+
   
   prod:
-    workspace:
-      host: ${PROD_DATABRICKS_HOST}
+    mode: production
+ 

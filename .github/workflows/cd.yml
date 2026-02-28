@@ -7,8 +7,17 @@ on:
   push:
     branches: [main]
 
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deploy target"
+        required: true
+        type: choice
+        options: [stg, prod]
+
 jobs:
   deploy_dev:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +36,7 @@ jobs:
 
   deploy_stg:
     needs: deploy_dev
-    if: false   # <-- HOLD STG for now
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'stg'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +53,7 @@ jobs:
 
   deploy_prod:
     needs: deploy_stg
-    if: false   # <-- HOLD PROD for now
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'prod'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
