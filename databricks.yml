@@ -1,0 +1,20 @@
+bundle:
+  name: openfema_lakehouse_e2e
+
+include:   
+  - src/env/*.yml
+  - resources/jobs/*.yml
+  - resources/pipelines/*.yml
+
+targets:
+  dev: 
+    workspace:
+      host: ${DEV_DATABRICKS_HOST}
+  
+  stg: 
+    workspace:
+      host: ${STG_DATABRICKS_HOST}
+  
+  prod:
+    workspace:
+      host: ${PROD_DATABRICKS_HOST}
