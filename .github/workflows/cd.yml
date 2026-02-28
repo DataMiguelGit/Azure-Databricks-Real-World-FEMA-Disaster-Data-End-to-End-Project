@@ -34,8 +34,7 @@ jobs:
           databricks bundle validate -t dev
           databricks bundle deploy -t dev
 
-  deploy_stg:
-    needs: deploy_dev
+  deploy_stg:    
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'stg'
     runs-on: ubuntu-latest
     steps:
@@ -51,8 +50,7 @@ jobs:
           databricks bundle validate -t stg
           databricks bundle deploy -t stg
 
-  deploy_prod:
-    needs: deploy_stg
+  deploy_prod:    
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'prod'
     runs-on: ubuntu-latest
     steps:
