@@ -22,7 +22,6 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-
-    # No Code yet, so dont run
-    #  - name: Tests
-    #    run: pytest -q
+   
+      - name: Tests
+        run: pytest -q
