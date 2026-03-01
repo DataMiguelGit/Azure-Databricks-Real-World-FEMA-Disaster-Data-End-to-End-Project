@@ -22,7 +22,8 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-
-    # No Code yet, so dont run
-    #  - name: Tests
-    #    run: pytest -q
+   
+      - name: Tests
+        env: 
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q
