@@ -1,3 +1,4 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 # Azure Databricks Real-World FEMA Disaster Data — End-to-End Project
 
 A production-ready (learning-focused) data engineering pipeline that ingests FEMA public data into an Azure Lakehouse and serves curated Bronze/Silver/Gold datasets for analytics and ML consumption.
