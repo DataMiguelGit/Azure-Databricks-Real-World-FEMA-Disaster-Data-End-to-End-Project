@@ -10,11 +10,17 @@ targets:
   dev: 
     mode: development
     default: true
+    variables: 
+      environment: dev
   
   stg: 
     mode: production
+    variables:
+      environment: stg
 
   
   prod:
     mode: production
+    variables:
+      environment: prod
  
