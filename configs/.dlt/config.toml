@@ -1,0 +1,17 @@
+[runtime]
+log_level = "WARNING"
+log_format = "{asctime}|{levelname}|{name}|{message}"
+request_timeout = 30.0
+request_max_attempts = 5
+request_backoff_factor = 1.0
+request_max_retry_delay = 30.0
+
+[sources.openfema.configs]
+base_url = "https://www.fema.gov/api/open/"
+resources = ["DisasterDeclarationsSummaries", "FemaWebDisasterSummaries"]
+pipeline_name = "openfema_disasters"
+destination = "filesystem"
+dataset_name = "openfema_disasters_raw"
+
+[destination.filesystem]
+bucket_url = "abfss://landing@dlsfuturede.dfs.core.windows.net/"

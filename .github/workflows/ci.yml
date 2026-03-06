@@ -20,8 +20,8 @@ jobs:
 
       - name: Lint (ruff)
         run: |
-          ruff check .
-          ruff format --check .
+          ruff check . --exclude "tests/*.ipynb"
+          ruff format --check . --exclude "tests/*.ipynb"
    
       - name: Tests
         env: 

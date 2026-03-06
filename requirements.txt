@@ -1,0 +1,1 @@
+dlt[az,parquet]==1.22.0
