@@ -11,11 +11,9 @@ resources:
               - ${var.paginator_limit}
               - --paginator-maximum-offset
               - ${var.paginator_maximum_offset}
-          environment_key: default
-
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "2"
-            dependencies:
-              - -r ../../requirements.txt
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DS3_v2"
+            num_workers: 0
+            spark_env_vars:
+              PYTHONPATH: "${workspace.file_path}"
