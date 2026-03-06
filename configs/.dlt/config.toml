@@ -13,9 +13,6 @@ pipeline_name = "openfema_disasters"
 destination = "filesystem"
 dataset_name = "openfema_disasters_raw"
 
-[destination.filesystem]
-bucket_url = "abfss://landing@dlsfuturede.dfs.core.windows.net/"
-
 [schema_contract]
 tables = "evolve"
 columns = "evolve"
