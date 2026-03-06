@@ -1,3 +1,6 @@
-variables:
-  environment:
-    default: stg
+targets:
+  stg:
+    variables:
+      environment: stg
+      paginator_limit: 50
+      paginator_maximum_offset: 5000

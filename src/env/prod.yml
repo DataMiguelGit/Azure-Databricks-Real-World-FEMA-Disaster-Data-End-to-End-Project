@@ -1,3 +1,6 @@
-variables:
-  environment:
-    default: prod
+targets:
+  prod:
+    variables:
+      environment: prod
+      paginator_limit: 1000
+      paginator_maximum_offset: -1

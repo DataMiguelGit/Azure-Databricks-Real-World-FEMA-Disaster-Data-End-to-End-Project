@@ -83,7 +83,7 @@ def run_openfema_extract():
             )
 
     load_info = pipeline.run(
-        openfema_source, schema_contract=dlt.config.get("schema_contact")
+        openfema_source, schema_contract=dlt.config.get("schema_contract")
     )
     return load_info
 

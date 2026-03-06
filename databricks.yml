@@ -6,21 +6,21 @@ include:
   - resources/jobs/*.yml
   - resources/pipelines/*.yml
 
+variables:
+  environment:
+    default: dev
+  paginator_limit:
+    default: 3
+  paginator_maximum_offset:
+    default: 100
+
 targets:
   dev: 
     mode: development
     default: true
-    variables: 
-      environment: dev
-  
+      
   stg: 
     mode: production
-    variables:
-      environment: stg
-
   
   prod:
-    mode: production
-    variables:
-      environment: prod
- 
+    mode: production 
