@@ -1,3 +1,6 @@
-variables:
-  environment:
-    default: dev
+targets:
+  dev:
+    variables:
+      environment: dev
+      paginator_limit: 3
+      paginator_maximum_offset: 100
