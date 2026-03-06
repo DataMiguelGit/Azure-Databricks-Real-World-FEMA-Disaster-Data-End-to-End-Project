@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    openfema_ingest:
+      name: openfema_ingest_${bundle.target}
+      tasks:
+        - task_key: extract_openfema
+          spark_python_task:
+            python_file: ../src/openfema/m1/openfema_extract.py
+            parameters:
+              - --environment
+              - ${var.environment}
+              - --paginator-limit
+              - ${var.paginator_limit}
+              - --paginator-maximum-offset
+              - ${var.paginator_maximum_offset}
+          environment_key: default
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "2"
+            dependencies:
+              - -r requirements.txt
