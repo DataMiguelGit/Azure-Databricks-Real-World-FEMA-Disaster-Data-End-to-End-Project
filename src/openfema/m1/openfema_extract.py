@@ -9,12 +9,13 @@ project_root = Path(__file__).resolve().parents[3]  # Goes up to DEV_Openfema_Pr
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-import argparse
-import dlt
-from dlt.sources.rest_api import rest_api_source
-from dlt.destinations import filesystem
-from src.openfema.utils.ids import new_load_id, utc_ingest_date
-from src.openfema.utils.paths import landing_root
+# Imports below require sys.path modification above
+import argparse  # noqa: E402
+import dlt  # noqa: E402
+from dlt.sources.rest_api import rest_api_source  # noqa: E402
+from dlt.destinations import filesystem  # noqa: E402
+from src.openfema.utils.ids import new_load_id, utc_ingest_date  # noqa: E402
+from src.openfema.utils.paths import landing_root  # noqa: E402
 
 
 # =============================================================================
