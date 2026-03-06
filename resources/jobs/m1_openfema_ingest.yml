@@ -12,8 +12,8 @@ resources:
               - --paginator-maximum-offset
               - ${var.paginator_maximum_offset}
           new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
+            spark_version: "16.4.x-scala2.12"
+            node_type_id: "Standard_DC4as_v5"
             num_workers: 0
             spark_env_vars:
               PYTHONPATH: "${workspace.file_path}"
