@@ -7,8 +7,6 @@ resources:
           spark_python_task:
             python_file: ../../src/openfema/m1/openfema_extract.py
             parameters:
-              - --environment
-              - ${var.environment}
               - --paginator-limit
               - ${var.paginator_limit}
               - --paginator-maximum-offset

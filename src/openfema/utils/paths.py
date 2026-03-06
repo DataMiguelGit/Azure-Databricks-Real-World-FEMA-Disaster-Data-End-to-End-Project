@@ -41,17 +41,9 @@ def _abfss(container: str, path: str) -> str:
     return f"abfss://{container}@dlsfuturede.dfs.core.windows.net/{path}"
 
 
-def landing_base(entity: str, ingest_date: str) -> str:
+def landing_root() -> str:
     env = get_environment()
-    return _abfss("landing", f"openfema/{env}/{entity}/ingest_date={ingest_date}/")
-
-
-def landing_run_dir(entity: str, ingest_date: str, load_id: str) -> str:
-    env = get_environment()
-    return _abfss(
-        "landing",
-        f"openfema/{env}/{entity}/ingest_date={ingest_date}/load_id={load_id}/",
-    )
+    return _abfss("landing", f"openfema/{env}/")
 
 
 def ops_manifest_path(ingest_date: str, load_id: str) -> str:
