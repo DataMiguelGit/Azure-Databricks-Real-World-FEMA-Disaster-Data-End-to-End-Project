@@ -1,2 +1,6 @@
 # dlthub secrets
-configs/.dlt/secrets.toml
+secrets.toml
+
+# local envs
+.venv
+__pycache__

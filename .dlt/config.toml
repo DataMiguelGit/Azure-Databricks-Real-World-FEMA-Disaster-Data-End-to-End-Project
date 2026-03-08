@@ -10,7 +10,6 @@ request_max_retry_delay = 30.0
 base_url = "https://www.fema.gov/api/open/"
 resources = ["DisasterDeclarationsSummaries", "FemaWebDisasterSummaries"]
 pipeline_name = "openfema_disasters"
-destination = "filesystem"
 dataset_name = "openfema_disasters_raw"
 
 [schema_contract]

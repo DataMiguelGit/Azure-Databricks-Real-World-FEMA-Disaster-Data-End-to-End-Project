@@ -1,23 +1,18 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-import argparse  
-import dlt  
-from dlt.sources.rest_api import rest_api_source  
-from dlt.destinations import filesystem  
-from src.openfema.utils.ids import new_load_id, utc_ingest_date  
-from src.openfema.utils.paths import landing_root  
+from pathlib import Path
+import sys
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-# =============================================================================
-# ARGUMENT PARSER
-# =============================================================================
-def parse_args():
-    """Parse command-line arguments for paginator configuration."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--paginator-limit", type=int, required=True)
-    parser.add_argument("--paginator-maximum-offset", type=int, required=True)
-    return parser.parse_args()
+import dlt
+from dlt.sources.rest_api import rest_api_source
+from dlt.destinations import filesystem
+from src.openfema.utils.ids import new_load_id, utc_ingest_date
+from src.openfema.utils.paths import landing_root
 
 
 # =============================================================================
@@ -27,16 +22,11 @@ def run_openfema_extract():
     """Execute the OpenFEMA data extraction pipeline."""
 
     # -------------------------------------------------------------------------
-    # 1. Parse command-line arguments
-    # -------------------------------------------------------------------------
-    args = parse_args()
-
-    # -------------------------------------------------------------------------
-    # 2. Configure paginator for API requests
+    # 1. Configure paginator for API requests
     # -------------------------------------------------------------------------
     paginator = {
         "type": "offset",
-        "limit": args.paginator_limit,
+        "limit": 1000,
         "offset": 0,
         "limit_param": "$top",
         "offset_param": "$skip",
@@ -44,12 +34,8 @@ def run_openfema_extract():
         "stop_after_empty_page": True,
     }
 
-    # Set maximum offset if specified (skip if -1)
-    if args.paginator_maximum_offset != -1:
-        paginator["maximum_offset"] = args.paginator_maximum_offset
-
     # -------------------------------------------------------------------------
-    # 3. Configure OpenFEMA REST API source
+    # 2. Configure OpenFEMA REST API source
     # -------------------------------------------------------------------------
     openfema_config = {
         # API client configuration
@@ -103,14 +89,14 @@ def run_openfema_extract():
     }
 
     # -------------------------------------------------------------------------
-    # 4. Generate run metadata (load ID, ingest date, destination path)
+    # 3. Generate run metadata (load ID, ingest date, destination path)
     # -------------------------------------------------------------------------
     run_id = new_load_id()
     ingest_date = utc_ingest_date()
     bucket_url = landing_root()
 
     # -------------------------------------------------------------------------
-    # 5. Initialize dlthub pipeline with filesystem destination custom
+    # 4. Initialize dlthub pipeline with filesystem destination custom
     # -------------------------------------------------------------------------
     pipeline = dlt.pipeline(
         pipeline_name=dlt.config.get("sources.openfema.configs.pipeline_name", str),
@@ -123,16 +109,15 @@ def run_openfema_extract():
             },
         ),
         dataset_name=dlt.config.get("sources.openfema.configs.dataset_name", str),
-        loader_file_format="parquet",
     )
 
     # -------------------------------------------------------------------------
-    # 6. Create REST API source from configuration
+    # 5. Create REST API source from configuration
     # -------------------------------------------------------------------------
     openfema_source = rest_api_source(openfema_config)
 
     # -------------------------------------------------------------------------
-    # 7. Validate requested resources against available resources
+    # 6. Validate requested resources against available resources
     # -------------------------------------------------------------------------
     requested_resources = dlt.config.get("sources.openfema.configs.resources", list)
     available_resources = [r["name"] for r in openfema_config["resources"]]
@@ -144,10 +129,12 @@ def run_openfema_extract():
             )
 
     # -------------------------------------------------------------------------
-    # 8. Execute pipeline and return load information
+    # 7. Execute pipeline and return load information
     # -------------------------------------------------------------------------
     load_info = pipeline.run(
-        openfema_source, schema_contract=dlt.config.get("schema_contract")
+        openfema_source,
+        schema_contract=dlt.config.get("schema_contract"),
+        loader_file_format="parquet",
     )
     return load_info
 
