@@ -1,0 +1,192 @@
+import json
+from typing import Any
+
+from fsspec.core import url_to_fs
+
+_RESOURCE_KEYS = ("resource", "resource_name", "table_name", "name")
+_COUNT_KEYS = (
+    "row_count",
+    "rows",
+    "records",
+    "items_count",
+    "loaded_items",
+    "inserted_count",
+)
+
+
+def _walk(obj: Any):
+    if isinstance(obj, dict):
+        yield obj
+        for value in obj.values():
+            yield from _walk(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _walk(item)
+
+
+def _load_info_to_dict(load_info: Any) -> dict[str, Any]:
+    if load_info is None:
+        return {}
+
+    if isinstance(load_info, dict):
+        return load_info
+
+    for attr in ("asdict", "to_dict", "dict"):
+        fn = getattr(load_info, attr, None)
+        if callable(fn):
+            try:
+                data = fn()
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+
+    return {"repr": str(load_info)}
+
+
+def extract_row_count_by_resource(
+    load_info: Any,
+    resources: list[str],
+) -> dict[str, int | None]:
+    """
+    Best-effort extraction of per-resource row counts from load_info,
+    without depending on a specific dlt internal version.
+    Returns None for any resource whose count cannot be determined.
+    """
+    counts: dict[str, int | None] = {resource: None for resource in resources}
+    payload = _load_info_to_dict(load_info)
+
+    for node in _walk(payload):
+        if not isinstance(node, dict):
+            continue
+
+        resource_name = None
+        for key in _RESOURCE_KEYS:
+            value = node.get(key)
+            if isinstance(value, str) and value in counts:
+                resource_name = value
+                break
+
+        if resource_name is None:
+            continue
+
+        count_value = None
+        for key in _COUNT_KEYS:
+            value = node.get(key)
+            if isinstance(value, int):
+                count_value = value
+                break
+
+        if count_value is not None:
+            counts[resource_name] = count_value
+
+    return counts
+
+
+def list_files_under(url: str) -> list[str]:
+    fs, path = url_to_fs(url)
+
+    try:
+        found = sorted(fs.find(path))
+    except FileNotFoundError:
+        return []
+    except Exception:
+        return []
+
+    files: list[str] = []
+    for item in found:
+        try:
+            if hasattr(fs, "isdir") and fs.isdir(item):
+                continue
+        except Exception:
+            pass
+
+        if hasattr(fs, "unstrip_protocol"):
+            files.append(fs.unstrip_protocol(item))
+        else:
+            files.append(item)
+
+    return files
+
+
+def write_json_to_url(url: str, payload: dict[str, Any]) -> None:
+    fs, path = url_to_fs(url)
+    parent = path.rsplit("/", 1)[0]
+
+    fs.makedirs(parent, exist_ok=True)
+
+    with fs.open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def write_run_manifest_success(
+    *,
+    load_id: str,
+    ingest_date: str,
+    run_ts_utc: str,
+    bucket_url: str,
+    landing_root_url: str,
+    manifest_url: str,
+    resources: list[str],
+    load_info: Any = None,
+    source_url: str | None = None,
+    extracted_at_utc: str | None = None,
+) -> dict[str, Any]:
+    """Build and write the manifest for a successful run."""
+    row_count_by_resource = extract_row_count_by_resource(load_info, resources)
+
+    resource_stats: list[dict[str, Any]] = []
+    all_files: list[str] = []
+
+    for resource in resources:
+        landing_prefix = (
+            f"{landing_root_url.rstrip('/')}/{resource}"
+            f"/ingest_date={ingest_date}/load_id={load_id}"
+        )
+        files = list_files_under(landing_prefix)
+        all_files.extend(files)
+
+        resource_stats.append(
+            {
+                "resource": resource,
+                "landing_prefix": landing_prefix,
+                "files_written": len(files),
+                "row_count": row_count_by_resource.get(resource),
+                "files": files,
+            }
+        )
+
+    total_rows = [
+        value for value in row_count_by_resource.values() if isinstance(value, int)
+    ]
+
+    manifest: dict[str, Any] = {
+        "schema_version": "1.0",
+        "source_system": "openfema",
+        "status": "SUCCEEDED",
+        "error_message": None,
+        "load_id": load_id,
+        "ingest_date": ingest_date,
+        "run_ts_utc": run_ts_utc,
+        "generated_at_utc": run_ts_utc,
+        "bucket_url": bucket_url,
+        "resources_ran": resources,
+        "files_written": all_files,
+        "row_count_by_resource": row_count_by_resource,
+        "resource_stats": resource_stats,
+        "totals": {
+            "resources_ran": len(resources),
+            "files_written": len(all_files),
+            "rows": sum(total_rows) if total_rows else None,
+        },
+    }
+
+    if source_url is not None:
+        manifest["source_url"] = source_url
+
+    if extracted_at_utc is not None:
+        manifest["extracted_at_utc"] = extracted_at_utc
+
+    write_json_to_url(manifest_url, manifest)
+    return manifest
