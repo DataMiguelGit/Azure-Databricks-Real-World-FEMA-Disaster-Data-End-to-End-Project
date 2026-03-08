@@ -21,7 +21,7 @@ jobs:
       - name: Lint (ruff)
         run: |
           ruff check . --exclude "tests/*.ipynb" --exclude "src/"
-          ruff format --check . --exclude "tests/*.ipynb" --exclude "src/"
+          ruff format --check . --exclude "tests/*.ipynb" --exclude "src/"          
    
       - name: Tests
         env: 
