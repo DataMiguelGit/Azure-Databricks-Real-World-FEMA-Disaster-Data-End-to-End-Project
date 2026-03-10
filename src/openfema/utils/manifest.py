@@ -39,9 +39,13 @@ def _abfs_storage_options(url: str) -> dict[str, str | bool]:
     options: dict[str, str | bool] = {}
 
     parsed = urlparse(url)
-    url_has_account_name = bool(parsed.username) and bool(parsed.hostname) and (
-        parsed.hostname.endswith("blob.core.windows.net")
-        or parsed.hostname.endswith("dfs.core.windows.net")
+    url_has_account_name = (
+        bool(parsed.username)
+        and bool(parsed.hostname)
+        and (
+            parsed.hostname.endswith("blob.core.windows.net")
+            or parsed.hostname.endswith("dfs.core.windows.net")
+        )
     )
 
     if isinstance(account_name, str) and account_name and not url_has_account_name:

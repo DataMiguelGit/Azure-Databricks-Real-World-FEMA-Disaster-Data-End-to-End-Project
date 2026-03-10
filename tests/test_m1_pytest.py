@@ -21,8 +21,7 @@ def test_paths_contract_smoke():
     load_id = "00000000-0000-0000-0000-000000000000"
 
     assert (
-        landing_root()
-        == "abfss://landing@dlsfuturede.dfs.core.windows.net/openfema/"
+        landing_root() == "abfss://landing@dlsfuturede.dfs.core.windows.net/openfema/"
     )
     assert ops_manifest_path(ingest_date, load_id) == (
         "abfss://ops@dlsfuturede.dfs.core.windows.net/"
