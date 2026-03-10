@@ -4,3 +4,4 @@ secrets.toml
 # local envs
 .venv
 __pycache__
+.pytest_cache
