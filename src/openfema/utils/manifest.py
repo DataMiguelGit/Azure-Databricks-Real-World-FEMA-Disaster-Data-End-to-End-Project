@@ -1,5 +1,7 @@
 import json
+import gzip
 from typing import Any
+from urllib.parse import urlparse
 
 from fsspec.core import url_to_fs
 
@@ -12,6 +14,53 @@ _COUNT_KEYS = (
     "loaded_items",
     "inserted_count",
 )
+
+
+def _abfs_storage_options(url: str) -> dict[str, str | bool]:
+    """
+    Build best-effort ABFS credentials from dlt secrets.
+    Kept local to avoid changing ingestion architecture.
+    """
+    try:
+        import dlt
+    except Exception:
+        return {}
+
+    account_name = dlt.secrets.get(
+        "destination.filesystem.credentials.azure_storage_account_name", None
+    )
+    account_key = dlt.secrets.get(
+        "destination.filesystem.credentials.azure_storage_account_key", None
+    )
+    sas_token = dlt.secrets.get(
+        "destination.filesystem.credentials.azure_storage_sas_token", None
+    )
+
+    options: dict[str, str | bool] = {}
+
+    parsed = urlparse(url)
+    url_has_account_name = bool(parsed.username) and bool(parsed.hostname) and (
+        parsed.hostname.endswith("blob.core.windows.net")
+        or parsed.hostname.endswith("dfs.core.windows.net")
+    )
+
+    if isinstance(account_name, str) and account_name and not url_has_account_name:
+        options["account_name"] = account_name
+    if isinstance(account_key, str) and account_key:
+        options["account_key"] = account_key
+    if isinstance(sas_token, str) and sas_token:
+        options["sas_token"] = sas_token
+
+    if "account_key" in options or "sas_token" in options:
+        options["anon"] = False
+
+    return options
+
+
+def _url_to_fs(url: str):
+    if url.startswith(("abfs://", "abfss://", "az://")):
+        return url_to_fs(url, **_abfs_storage_options(url))
+    return url_to_fs(url)
 
 
 def _walk(obj: Any):
@@ -84,7 +133,7 @@ def extract_row_count_by_resource(
 
 
 def list_files_under(url: str) -> list[str]:
-    fs, path = url_to_fs(url)
+    fs, path = _url_to_fs(url)
 
     try:
         found = sorted(fs.find(path))
@@ -110,7 +159,7 @@ def list_files_under(url: str) -> list[str]:
 
 
 def write_json_to_url(url: str, payload: dict[str, Any]) -> None:
-    fs, path = url_to_fs(url)
+    fs, path = _url_to_fs(url)
     parent = path.rsplit("/", 1)[0]
 
     fs.makedirs(parent, exist_ok=True)
@@ -118,6 +167,42 @@ def write_json_to_url(url: str, payload: dict[str, Any]) -> None:
     with fs.open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+
+def _rows_from_file(url: str) -> int | None:
+    fs, path = _url_to_fs(url)
+
+    try:
+        if url.endswith(".parquet"):
+            import pyarrow.parquet as pq
+
+            with fs.open(path, "rb") as f:
+                return int(pq.ParquetFile(f).metadata.num_rows)
+
+        if url.endswith(".jsonl"):
+            with fs.open(path, "rt", encoding="utf-8") as f:
+                return sum(1 for _ in f)
+
+        if url.endswith(".jsonl.gz"):
+            with fs.open(path, "rb") as f:
+                with gzip.open(f, "rt", encoding="utf-8") as gz:
+                    return sum(1 for _ in gz)
+    except Exception:
+        return None
+
+    return None
+
+
+def _count_rows_from_files(files: list[str]) -> int | None:
+    has_known = False
+    total = 0
+    for file_url in files:
+        rows = _rows_from_file(file_url)
+        if rows is None:
+            continue
+        has_known = True
+        total += rows
+    return total if has_known else None
 
 
 def write_run_manifest_success(
@@ -134,7 +219,9 @@ def write_run_manifest_success(
     extracted_at_utc: str | None = None,
 ) -> dict[str, Any]:
     """Build and write the manifest for a successful run."""
-    row_count_by_resource = extract_row_count_by_resource(load_info, resources)
+    dlt_row_count_by_resource = extract_row_count_by_resource(load_info, resources)
+    row_count_by_resource: dict[str, int | None] = {}
+    files_written_by_resource: dict[str, int] = {}
 
     resource_stats: list[dict[str, Any]] = []
     all_files: list[str] = []
@@ -146,13 +233,20 @@ def write_run_manifest_success(
         )
         files = list_files_under(landing_prefix)
         all_files.extend(files)
+        files_written_by_resource[resource] = len(files)
+
+        rows_loaded = _count_rows_from_files(files)
+        if rows_loaded is None:
+            rows_loaded = dlt_row_count_by_resource.get(resource)
+        row_count_by_resource[resource] = rows_loaded
 
         resource_stats.append(
             {
                 "resource": resource,
                 "landing_prefix": landing_prefix,
                 "files_written": len(files),
-                "row_count": row_count_by_resource.get(resource),
+                "records_loaded": rows_loaded,
+                "row_count": rows_loaded,
                 "files": files,
             }
         )
@@ -173,6 +267,8 @@ def write_run_manifest_success(
         "bucket_url": bucket_url,
         "resources_ran": resources,
         "files_written": all_files,
+        "files_written_by_resource": files_written_by_resource,
+        "records_loaded_by_resource": row_count_by_resource,
         "row_count_by_resource": row_count_by_resource,
         "resource_stats": resource_stats,
         "totals": {

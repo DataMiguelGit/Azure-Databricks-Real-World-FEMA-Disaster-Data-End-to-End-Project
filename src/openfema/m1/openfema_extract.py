@@ -11,8 +11,9 @@ if str(REPO_ROOT) not in sys.path:
 import dlt
 from dlt.sources.rest_api import rest_api_source
 from dlt.destinations import filesystem
-from src.openfema.utils.ids import new_load_id, utc_ingest_date
-from src.openfema.utils.paths import landing_root
+from src.openfema.utils.ids import new_load_id, utc_ingest_date, utc_now_ts
+from src.openfema.utils.manifest import write_run_manifest_success
+from src.openfema.utils.paths import landing_root, ops_manifest_path
 
 
 # =============================================================================
@@ -21,9 +22,6 @@ from src.openfema.utils.paths import landing_root
 def run_openfema_extract():
     """Execute the OpenFEMA data extraction pipeline."""
 
-    # -------------------------------------------------------------------------
-    # 1. Configure paginator for API requests
-    # -------------------------------------------------------------------------
     paginator = {
         "type": "offset",
         "limit": 1000,
@@ -34,11 +32,7 @@ def run_openfema_extract():
         "stop_after_empty_page": True,
     }
 
-    # -------------------------------------------------------------------------
-    # 2. Configure OpenFEMA REST API source
-    # -------------------------------------------------------------------------
     openfema_config = {
-        # API client configuration
         "client": {
             "base_url": dlt.config.get("sources.openfema.configs.base_url", str),
             **(
@@ -48,7 +42,6 @@ def run_openfema_extract():
             ),
             "headers": {"Accept": "application/json"},
         },
-        # Default configuration for all resources
         "resource_defaults": {
             "endpoint": {
                 "params": {
@@ -69,7 +62,6 @@ def run_openfema_extract():
                 "lastRefresh": {"data_type": "timestamp"},
             },
         },
-        # Available resources to extract
         "resources": [
             {
                 "name": "DisasterDeclarationsSummaries",
@@ -88,16 +80,13 @@ def run_openfema_extract():
         ],
     }
 
-    # -------------------------------------------------------------------------
-    # 3. Generate run metadata (load ID, ingest date, destination path)
-    # -------------------------------------------------------------------------
     run_id = new_load_id()
     ingest_date = utc_ingest_date()
+    run_ts_utc = utc_now_ts()
     bucket_url = landing_root()
 
-    # -------------------------------------------------------------------------
-    # 4. Initialize dlthub pipeline with filesystem destination custom
-    # -------------------------------------------------------------------------
+    manifest_url = ops_manifest_path(ingest_date, run_id)
+
     pipeline = dlt.pipeline(
         pipeline_name=dlt.config.get("sources.openfema.configs.pipeline_name", str),
         destination=filesystem(
@@ -111,16 +100,13 @@ def run_openfema_extract():
         dataset_name=dlt.config.get("sources.openfema.configs.dataset_name", str),
     )
 
-    # -------------------------------------------------------------------------
-    # 5. Create REST API source from configuration
-    # -------------------------------------------------------------------------
     openfema_source = rest_api_source(openfema_config)
 
-    # -------------------------------------------------------------------------
-    # 6. Validate requested resources against available resources
-    # -------------------------------------------------------------------------
     requested_resources = dlt.config.get("sources.openfema.configs.resources", list)
     available_resources = [r["name"] for r in openfema_config["resources"]]
+
+    if not requested_resources:
+        requested_resources = available_resources
 
     for resource in requested_resources:
         if resource not in available_resources:
@@ -128,14 +114,35 @@ def run_openfema_extract():
                 f"Resource '{resource}' is not supported. Available: {available_resources}"
             )
 
-    # -------------------------------------------------------------------------
-    # 7. Execute pipeline and return load information
-    # -------------------------------------------------------------------------
+    source_to_run = openfema_source.with_resources(*requested_resources)
+
     load_info = pipeline.run(
-        openfema_source,
+        source_to_run,
         schema_contract=dlt.config.get("schema_contract"),
         loader_file_format="parquet",
     )
+
+    manifest = write_run_manifest_success(
+        load_id=run_id,
+        ingest_date=ingest_date,
+        run_ts_utc=run_ts_utc,
+        bucket_url=bucket_url,
+        landing_root_url=bucket_url,
+        manifest_url=manifest_url,
+        resources=requested_resources,
+        load_info=load_info,
+        source_url=dlt.config.get("sources.openfema.configs.base_url", str),
+        extracted_at_utc=run_ts_utc,
+    )
+
+    print(f"[openfema] status=SUCCEEDED run_id={run_id} ingest_date={ingest_date}")
+    print(f"[openfema] resources={requested_resources}")
+    print(f"[openfema] manifest_url={manifest_url}")
+    print(
+        f"[openfema] records_loaded_by_resource="
+        f"{manifest.get('records_loaded_by_resource')}"
+    )
+
     return load_info
 
 
